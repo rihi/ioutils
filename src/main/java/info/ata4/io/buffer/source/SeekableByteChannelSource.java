@@ -11,6 +11,7 @@ package info.ata4.io.buffer.source;
 
 import info.ata4.io.channel.ChannelUtils;
 import info.ata4.log.LogUtils;
+
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -83,7 +84,7 @@ public class SeekableByteChannelSource extends ChannelSource<SeekableByteChannel
             
             // correct channel position by the number of unread bytes
             if (buf.hasRemaining()) {
-                chan.position(chan.position() - buf.remaining());
+                chan.position(chan.position() + buf.remaining());
             }
             
             // clear read buffer
@@ -129,7 +130,7 @@ public class SeekableByteChannelSource extends ChannelSource<SeekableByteChannel
     
     @Override
     public long position() throws IOException {
-        return write ? chan.position() + buf.position() : chan.position() - buf.remaining();
+        return write ? chan.position() + buf.position() : chan.position() + buf.remaining();
     }
     
     @Override
@@ -161,14 +162,18 @@ public class SeekableByteChannelSource extends ChannelSource<SeekableByteChannel
         L.log(Level.FINEST, "postion: {0}", newPos);
         
         long pos = chan.position();
+        long relativePosition = newPos - pos;
         boolean clear = false;
-        
+
         if (write) {
-            // in write mode, the buffer always needs to be cleared
-            clear = true;
+            // in write mode, the buffer position may be moved backwards
+            if (relativePosition < 0 || relativePosition > buf.position()) {
+                L.finest("postion: outside write buffer");
+                clear = true;
+            }
         } else {
-            // in read mode, the buffer position may be moved forward
-            if (newPos < pos + buf.position() || newPos > buf.limit()) {
+            // in read mode, the buffer position may be moved arbitrarily
+            if (relativePosition < 0 || relativePosition > buf.limit()) {
                 L.finest("postion: outside read buffer");
                 clear = true;
             }
@@ -176,13 +181,16 @@ public class SeekableByteChannelSource extends ChannelSource<SeekableByteChannel
         
         if (clear) {
             flush();
-            pos = newPos;
-            chan.position(pos);
             clear();
+            chan.position(newPos);
         }
 
         // use difference between newPos and bufPos as position for the buffer
-        buf.position((int) (newPos - pos));
+        if (write) {
+            buf.position((int) (newPos - chan.position()));
+        } else {
+            buf.position((int) (buf.limit() - (newPos - chan.position())));
+        }
     }
 
     @Override
