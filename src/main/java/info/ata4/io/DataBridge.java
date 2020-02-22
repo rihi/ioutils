@@ -10,6 +10,7 @@
 package info.ata4.io;
 
 import info.ata4.io.buffer.source.BufferedSource;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteOrder;
@@ -73,7 +74,7 @@ public abstract class DataBridge implements Seekable, Closeable, Swappable {
                 break;
 
             case CURRENT:
-                pos = position() + where;
+                pos = offsetSeekRelative(where);
                 break;
 
             case END:
@@ -82,6 +83,8 @@ public abstract class DataBridge implements Seekable, Closeable, Swappable {
         }
         position(pos);
     }
+
+    protected abstract long offsetSeekRelative(long offset) throws IOException;
     
     @Override
     public long remaining() throws IOException {

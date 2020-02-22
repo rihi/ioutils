@@ -12,6 +12,7 @@ package info.ata4.io;
 import info.ata4.io.buffer.source.BufferedSource;
 import info.ata4.io.buffer.source.BufferedSourceChannel;
 import info.ata4.io.util.HalfFloat;
+
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -30,7 +31,7 @@ public class DataWriter extends DataBridge implements DataOutput, StringOutput {
     public DataWriter(BufferedSource buf) {
         super(buf);
     }
-    
+
     public void writeStruct(Struct struct) throws IOException {
         struct.write(this);
     }
@@ -38,7 +39,12 @@ public class DataWriter extends DataBridge implements DataOutput, StringOutput {
     public OutputStream stream() {
         return Channels.newOutputStream(new BufferedSourceChannel(buf));
     }
-    
+
+    @Override
+    protected long offsetSeekRelative(long offset) throws IOException {
+        return position() + offset;
+    }
+
     ////////////////
     // DataOutput //
     ////////////////

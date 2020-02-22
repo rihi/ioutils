@@ -12,6 +12,7 @@ package info.ata4.io;
 import info.ata4.io.buffer.source.BufferedSource;
 import info.ata4.io.buffer.source.BufferedSourceChannel;
 import info.ata4.io.util.HalfFloat;
+
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,6 +40,11 @@ public class DataReader extends DataBridge implements DataInput, StringInput {
     
     public InputStream stream() {
         return Channels.newInputStream(new BufferedSourceChannel(buf));
+    }
+
+    @Override
+    protected long offsetSeekRelative(long offset) throws IOException {
+        return position() - offset;
     }
 
     ///////////////
