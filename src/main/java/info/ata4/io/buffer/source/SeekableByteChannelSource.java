@@ -55,52 +55,30 @@ public class SeekableByteChannelSource extends ChannelSource<SeekableByteChannel
         // switch to write mode if there's no readable channel
         write = bufIn == null;
     }
-    
-    private void setRead() throws IOException {
-        if (!canRead()) {
-            throw new NonReadableSourceException();
+
+    private void setWrite(boolean mode) throws IOException
+    {
+        if (write == mode) {
+            return;
         }
-        
-        if (write) {
-            L.finest("setRead");
-            
-            // write pending bytes
-            flush();
-            
-            // clear write buffer
-            clear();
-            
-            write = false;
-        }
-    }
-    
-    private void setWrite() throws IOException {
-        if (!canWrite()) {
-            throw new NonWritableSourceException();
-        }
-        
-        if (!write) {
-            L.finest("setWrite");
-            
-            // correct channel position by the number of unread bytes
-            if (buf.hasRemaining()) {
-                chan.position(chan.position() + buf.remaining());
+
+        if (mode) {
+            if (!canWrite()) {
+                throw new NonWritableSourceException();
             }
-            
-            // clear read buffer
-            clear();
-            
-            write = true;
+            L.finest("setWrite");
+        } else {
+            if (!canRead()) {
+                throw new NonReadableSourceException();
+            }
+            L.finest("setRead");
         }
+
+        flush();
+
+        write = mode;
     }
-    
-    public void clear() {
-        L.finest("clear");
-        
-        // mark buffer as empty
-        buf.limit(0);
-    }
-    
+
     @Override
     public boolean canRead() {
         return bufIn != null;
@@ -125,7 +103,15 @@ public class SeekableByteChannelSource extends ChannelSource<SeekableByteChannel
     public void flush() throws IOException {
         if (canWrite() && write) {
             bufOut.flush();
+        } else if (canRead() && !write) {
+            // correct channel position by the number of unread bytes
+            if (buf.hasRemaining()) {
+                chan.position(chan.position() + buf.remaining());
+            }
         }
+
+        // mark buffer as empty
+        buf.limit(0);
     }
     
     @Override
@@ -135,25 +121,25 @@ public class SeekableByteChannelSource extends ChannelSource<SeekableByteChannel
     
     @Override
     public int read(ByteBuffer dst) throws IOException {
-        setRead();
+        setWrite(false);
         return bufIn.read(dst);
     }
     
     @Override
     public int write(ByteBuffer src) throws IOException {
-        setWrite();
+        setWrite(true);
         return bufOut.write(src);
     }
     
     @Override
     public ByteBuffer requestRead(int required) throws EOFException, IOException {
-        setRead();
+        setWrite(false);
         return bufIn.requestRead(required);
     }
     
     @Override
     public ByteBuffer requestWrite(int required) throws EOFException, IOException {
-        setWrite();
+        setWrite(true);
         return bufOut.requestWrite(required);
     }
 
@@ -181,7 +167,6 @@ public class SeekableByteChannelSource extends ChannelSource<SeekableByteChannel
         
         if (clear) {
             flush();
-            clear();
             chan.position(newPos);
         }
 
@@ -200,7 +185,6 @@ public class SeekableByteChannelSource extends ChannelSource<SeekableByteChannel
     
     public void truncate(long size) throws IOException {
         flush();
-        clear();
         chan.truncate(size);
     }
 }
